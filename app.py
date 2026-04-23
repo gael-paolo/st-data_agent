@@ -4,12 +4,22 @@ import json
 from openai import OpenAI
 
 # =========================
-# INITIAL CONFIGURATION
+# PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Data Analytics Assistant", layout="wide")
 
-client = OpenAI()
+# =========================
+# LOAD API KEY FROM SECRETS
+# =========================
+if "OPENAI_API_KEY" not in st.secrets:
+    st.error("Missing OPENAI_API_KEY in Streamlit secrets")
+    st.stop()
 
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# =========================
+# CONSTANTS
+# =========================
 SECTIONS = {
     "eda": "Exploratory Data Analysis",
     "data_cleaning": "Data Cleaning",
@@ -28,7 +38,7 @@ ROLES = {
 }
 
 # =========================
-# SESSION MEMORY
+# SESSION STATE
 # =========================
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -57,8 +67,8 @@ def build_prompt(data_profile, user_query, section, role):
 You are an expert in data science and advanced analytics.
 
 CONSTRAINTS:
-- Only respond to topics related to analytics, statistics, or data science.
-- If the query is خارج scope, respond exactly:
+- Only respond to analytics, statistics, or data science topics.
+- If out of scope, respond exactly:
 "This tool is exclusively focused on data analytics."
 
 MANDATORY OUTPUT FORMAT (valid JSON):
@@ -69,11 +79,10 @@ MANDATORY OUTPUT FORMAT (valid JSON):
 
 CODE RULES:
 - Must be executable
-- Include necessary imports
+- Include imports
 - Do not invent columns
-- Must be based on the provided dataset
-- Use pandas, numpy, sklearn, matplotlib or seaborn when applicable
-- Do not include any text outside the code in the 'code' field
+- Use pandas, numpy, sklearn, matplotlib or seaborn
+- No text outside code in 'code'
 
 ASSISTANT ROLE: {role}
 TASK TYPE: {section}
@@ -91,7 +100,7 @@ User request:
 
 def query_openai(system_prompt, user_prompt):
     response = client.chat.completions.create(
-        model="gpt-5.4-mini",
+        model="gpt-5.3",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -105,7 +114,6 @@ def query_openai(system_prompt, user_prompt):
 # =========================
 st.title("Data Science & Analytics Assistant")
 
-# Upload dataset
 uploaded_file = st.file_uploader("Upload your dataset (.csv)", type=["csv"])
 
 if uploaded_file:
@@ -117,36 +125,32 @@ if uploaded_file:
         st.subheader("Dataset Preview")
         st.dataframe(df.head())
 
-        with st.expander("Automatic Dataset Summary"):
+        with st.expander("Dataset Summary"):
             st.json(st.session_state.data_profile)
 
     except Exception as e:
         st.error(f"Error loading dataset: {e}")
 
-# Section selection
 section = st.selectbox(
     "Select task type",
     options=list(SECTIONS.keys()),
     format_func=lambda x: SECTIONS[x]
 )
 
-# Role selection
 role = st.selectbox(
     "Select assistant role",
     options=list(ROLES.keys()),
     format_func=lambda x: ROLES[x]
 )
 
-# User input
 user_query = st.text_area("Describe your request")
 
-# Run button
 if st.button("Generate response"):
 
     if st.session_state.data_profile is None:
-        st.warning("You must upload a dataset first")
+        st.warning("Upload a dataset first")
     elif not user_query.strip():
-        st.warning("Please enter a valid request")
+        st.warning("Enter a valid request")
     else:
         with st.spinner("Generating response..."):
 
@@ -178,7 +182,6 @@ if st.button("Generate response"):
                 st.subheader("Explanation (Spanish)")
                 st.write(explanation)
 
-                # Save in session memory
                 st.session_state.history.append({
                     "query": user_query,
                     "section": section,

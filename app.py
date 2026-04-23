@@ -99,15 +99,22 @@ User request:
     return system_prompt, user_prompt
 
 def query_openai(system_prompt, user_prompt):
-    response = client.chat.completions.create(
-        model="gpt-5.3",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+    response = client.responses.create(
+        model="gpt-5.4-mini",
+        input=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
         ],
         temperature=0.2
     )
-    return response.choices[0].message.content
+
+    return response.output_text
 
 # =========================
 # UI
